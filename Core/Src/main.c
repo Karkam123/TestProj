@@ -50,6 +50,8 @@ PCD_HandleTypeDef hpcd_USB_OTG_FS;
 
 /* USER CODE BEGIN PV */
 
+//static struct udp_pcb* upcb = NULL;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -64,11 +66,24 @@ static void MX_TIM2_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+static struct udp_pcb* upcb = NULL;
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim)
 {
   // отправляем пакет раз в секунду
-	udp_send_msg();
+	//HAL_GPIO_TogglePin(GPIOB, LD2_Pin);
+	udp_send_msg(upcb, "One");
 }
+
+static void udp_receive_callback (void *arg, struct udp_pcb *pcb, struct pbuf *p,
+	    const ip_addr_t *addr, u16_t port)
+{
+	HAL_GPIO_TogglePin(GPIOB, LD1_Pin);
+	// в этой функции обязательно должны очистить p, иначе память потечёт
+	pbuf_free(p);
+
+}
+
 /* USER CODE END 0 */
 
 /**
@@ -104,8 +119,16 @@ int main(void)
   MX_TIM2_Init();
   MX_LWIP_Init();
   /* USER CODE BEGIN 2 */
-  udp_create_socket();
+
+  ip4_addr_t ip_addr;
+  IP4_ADDR(&ip_addr, 192, 168, 0, 11);
+  u16_t local_port = 3333;
+  void *recv_arg= NULL;
+
+  upcb = udp_create_socket(ip_addr, local_port, udp_receive_callback, recv_arg);
+
   HAL_TIM_Base_Start_IT(&htim2);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -116,6 +139,7 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 	  MX_LWIP_Process();
+
   }
   /* USER CODE END 3 */
 }
